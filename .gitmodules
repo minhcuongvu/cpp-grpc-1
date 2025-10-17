@@ -1,0 +1,6 @@
+[submodule "proto_extra"]
+	path = proto_extra
+	url = git@github.com:minhcuongvu/example-go-proto-1.git
+[submodule "proto/extra"]
+	path = proto/extra
+	url = git@github.com:minhcuongvu/example-go-proto-1.git

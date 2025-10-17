@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
-# Define directory for generated protobuf and gRPC files
+# Directory for generated protobuf and gRPC files
 set(GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GENERATED_DIR})
 
@@ -20,33 +20,41 @@ file(MAKE_DIRECTORY ${GENERATED_DIR})
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 
-# Compile the Protobuf and gRPC files
-set(PROTO_FILE ${CMAKE_SOURCE_DIR}/proto/helloworld.proto)
+# Automatically find all .proto files in proto/ and subfolders
+file(GLOB_RECURSE PROTO_FILES
+    "${CMAKE_SOURCE_DIR}/proto/*.proto"
+    "${CMAKE_SOURCE_DIR}/proto/extra/*.proto"
+)
 
-add_library(protolib ${PROTO_FILE})
+# Library for proto code
+add_library(protolib ${PROTO_FILES})
 target_link_libraries(protolib gRPC::grpc++)
+target_include_directories(protolib PUBLIC ${GENERATED_DIR}/proto ${GENERATED_DIR}/proto/extra)
 
-target_include_directories(protolib PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+# gRPC plugin
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
-# https://github.com/protocolbuffers/protobuf/blob/main/docs/cmake_protobuf_generate.md
+
+# Generate protobuf C++ code
 protobuf_generate(TARGET protolib LANGUAGE cpp
-PROTOC_OUT_DIR "${GENERATED_DIR}")
-protobuf_generate(TARGET protolib LANGUAGE grpc 
-GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc 
-PROTOC_OUT_DIR "${GENERATED_DIR}"
-PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}")
+    PROTOC_OUT_DIR "${GENERATED_DIR}"
+)
 
-# Include the generated code directory
-include_directories(${GENERATED_DIR} ${GENERATED_DIR}/proto)
+# Generate gRPC C++ code
+protobuf_generate(TARGET protolib LANGUAGE grpc
+    GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
+    PROTOC_OUT_DIR "${GENERATED_DIR}"
+    PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}"
+)
 
-# Create the executables
-# add_executable(server ${CMAKE_SOURCE_DIR}/example_server.cc)
-# target_link_libraries(server protolib)
+# Include the generated code directories
+include_directories(${GENERATED_DIR})
+
+# Add the client executable
 add_executable(client ${CMAKE_SOURCE_DIR}/src/client.cc)
 target_link_libraries(client protolib)
-
-# Set the output directories for executables
-# set_target_properties(server PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${EXECUTABLE_OUTPUT_PATH})
 set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${EXECUTABLE_OUTPUT_PATH})
 
-# see more examples in https://github.com/grpc/grpc/tree/master/examples/cpp
+# Optionally: add server or other executables here
+# add_executable(server ${CMAKE_SOURCE_DIR}/src/server.cc)
+# target_link_libraries(server protolib)
+# set_target_properties(server PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${EXECUTABLE_OUTPUT_PATH})
